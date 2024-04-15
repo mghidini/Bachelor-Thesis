@@ -1,0 +1,20 @@
+\chapter*{Conclusioni}
+\label{ch:conclusioni}
+
+Il risultato di questo progetto di tesi è stato lo sviluppo e l’implementazione del sistema Epimetheus, un \textit{Clinical Decision Support System} nel contesto della prognosi d'interventi chirurgici complessi, con l'obiettivo di visualizzare l'incertezza dei dati, attraverso predizioni, calcolate con modelli di Machine Learning.
+
+Lo studio degli aspetti teorici ha evidenziato l’importanza e l’utilità di questo tipo di strumenti in ambito medico.
+
+Dall'analisi condotta sull'applicativo, inoltre, è emersa la necessità di pensare ad una nuova architettura per il progetto, che prevedesse la separazione tra front-end e back-end; il server back-end, che implementa una API RESTful, comunica con il front-end tramite specifici endpoint. Questa ristrutturazione ha reso il sistema meno rigido e più scalabile, e quindi pronto ad eventuali ampliamenti.
+\newline
+Tra gli sviluppi futuri, potrebbero essere integrati nuovi modelli di ML, e quindi nuove procedure su cui poter ottenere risultati. In questo senso, sarebbe utile lavorare alla creazione di un vero e proprio database per mantenere le strutture dei form delle diverse procedure.
+\newline
+Un altro aspetto utile rispetto alla creazione di basi di dati legate al sistema, sarebbe la possibilità di mantenere eventuali dati riguardanti gli utenti e gli utilizzi del sistema, al fine di poter creare statistiche.
+
+Infine, il deployment dell'applicazione su un server pubblico consente l’utilizzo di Epimetheus a utenti esterni, permettendo l’avvio di una nuova fase di testing. 
+\newline
+In questo contesto, una volta che la parte di front-end sarà pronta per essere messa in produzione, sarà possibile completare il deployment, integrando React con il server Apache in modo analogo a quanto è stato fatto con il back-end Flask.
+\newline
+Testare l’applicazione in un ambiente reale e ricevere \textit{feedback} dagli utenti evidenzierà i punti forti e le criticità dell'applicativo, favorendo uno sviluppo continuo ed iterativo del sistema.
+\newline
+L’utilizzo da parte del personale medico, poi, contribuirà a promuovere l'accettazione di questo tipo di supporti:  dimostrarne l’utilità e l’affidabilità nel contesto clinico, incoraggerebbe gli operatori sanitari ad utilizzarla e a integrarla nella loro pratica.

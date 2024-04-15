@@ -1,0 +1,439 @@
+\chapter{Il progetto Epimetheus}
+\label{ch:capitolo2}
+
+% --- Inizio del Capitolo 2 ---
+
+Il presente capitolo descrive il lavoro svolto durante il periodo di stage, presso il laboratorio MUDI dell'Università degli Studi Milano Bicocca.
+\newline
+MUDI è un laboratorio informatico di ricerca, del dipartimento di Informatica, Sistemistica e Comunicazione (DISCo) ed è focalizzato su interazione uomo-macchina, sistemi di supporto decisionali, machine learning e incertezza.
+
+Il progetto oggetto di questa relazione riguarda l'implementazione e il \textit{deployment} di una web app, che implementa un sistema di supporto alle decisioni in ambito clinico, denominato Epimetheus.
+\newline
+In particolare, gli obbiettivi del progetto vertevano sullo sviluppo back-end e di flusso logico, utilizzando come strumenti il linguaggio Python e il framework Flask e integrando componenti di Machine Learning preesistenti nel sistema.
+
+In questo capitolo, si andrà a fare un'analisi dell'applicativo esistente in tutte le sue componenti, per poi esporre le fasi di sviluppo della nuova architettura back-end e infine la fase di \textit{deployment} dell'applicazione in ambiente di produzione.
+
+
+\section{Analisi dell'applicativo esistente}
+\label{sec:analisiApp}
+
+Epimetheus è un supporto digitale alla prognosi di interventi chirurgici complessi in ambito ortopedico. 
+Il progetto è legato a un’analisi qualitativa dello stato di salute dei pazienti, da cui poi viene ricavata una presentazione dei risultati, attraverso alcune visualizzazioni dati.
+\newline
+Più precisamente, si tratta di un \textit{Decision Support System}, che analizza i dati del paziente in fase preoperatoria e calcola la probabilità e il livello di miglioramento dello stato del paziente, nei sei mesi successivi all'operazione. 
+\newline
+I dati del paziente derivano da una serie di questionari, mentre le previsioni sono effettuate tramite modelli di Machine Learning.
+\newline
+Attraverso le visualizzazioni il medico potrà avviare un confronto con il paziente, per decidere la prognosi.
+
+Il sistema è stato declinato in una web app, in modo da offrire agli utenti un accesso intuitivo e conveniente tramite browser.
+
+\subsection{Interfaccia}
+\label{subsec:interfacce}
+
+L'interfaccia è composta da due pagine:
+nella prima pagina (Figura \ref{fig:formPage}) viene presentato un form di compilazione, in cui il medico inserisce i dati derivanti da questionari relativi allo stato di salute del paziente. Questa pagina consiste, a sua volta, di due step: un primo step per scegliere la procedura (cioè il tipo di operazione: \textit{spine}, \textit{hip} o \textit{knee}) e il secondo in cui viene effettivamente richiesta la compilazione del form. 
+\newline
+Una volta compilati tutti i campi, l’utente, cliccando un bottone, avvia il calcolo delle previsioni e, se non ci sono errori, atterra alla pagina dei risultati (Figura \ref{fig:resultsPage}), in cui è possibile consultare le visualizzazioni dei dati.
+
+\begin{figure}
+    \centering
+    \includegraphics[width=1.0\linewidth]{immagini/form-step3-insertData.png}
+    \caption{Applicazione web Epimetheus: la pagina del form}
+    \label{fig:formPage}
+\end{figure}
+
+\begin{figure}
+    \centering
+    \includegraphics[width=1\linewidth]{immagini/step4-results.png}
+    \caption{Applicazione web Epimetheus: la pagina dei risultati}
+    \label{fig:resultsPage}
+\end{figure}
+
+
+\subsection{Questionari}
+\label{subsec:questionari}
+
+I dati inseriti dal medico nel form di compilazione derivano da questionari, compilati dal paziente stesso, in relazione al proprio stato di salute. 
+\newline
+Di seguito, verranno analizzatile alcune voci di tali autovalutazioni, per comprenderne meglio il significato ed evidenziarne il range di valori, che ciascun elemento può assumere.
+\newline
+Per questa analisi si fa riferimento al lavoro di tesi di L. Frontino \cite{tesiFrontino}.
+\begin{itemize}
+    \item Classe ASA: la scala ASA è un sistema di classificazione per lo stato fisico del paziente, in relazione ai rischi. I suoi valori vanno da 0 (migliore) a 4 (peggiore).
+    \item Morbidity: questo indice è utilizzato per quantificare l'incidenza e la gravità delle condizioni all'interno di una comunità o di un gruppo di pazienti. I valori di questo indice vanno da 0 a 100.
+    \item ODI: l'Oswestry Disability Index è un questionario per valutare le disabilità in persone che soffrono di lombalgia sia acuta che cronica. Questa scala può assume valori da 0 (la migliore condizione di salute possibile) a 100 (la peggiore condizione di salute possibile)
+    \item VAS: la Visual Analogue Scale è uno strumento di misurazione che tenta di misurare una caratteristica o atteggiamento variabile, attraverso una serie di valori difficili da misurare direttamente. L'intervallo di valori assunti da questo indice è 0-10.
+    \item FABQ Work: il Fear-Avoidance Beliefs Questionnaire è un questionario self-report che quantica il dolore correlato a paure e credenze circa la necessità di modificare i comportamenti per evitare il dolore, e valuta l'associazione tra le credenze e le disabilità di lavoro e dell'attività fisica. Assume valori tra 0 e 66.
+    \item SF12 e SF36: il questionario Short-Form Health Survey a 12 e 36 voci è un questionario psicometrico che permette di descrivere la salute percepita con 2 indici (fisico e mentale). Per il questionario a 36 voci, i valori assumibili stanno nell'intervallo 0-100; per quello a 12 voci, il range varia in base al campo: alcuni campi sono binari, altri hanno un intervallo di validità tra 0 e 4, altri ancora tra 0 e 5.
+
+\end{itemize}
+Ad oggi, Epimetheus permette di scegliere tra due differenti procedure: \textit{hip/knee} (anca/ginocchio) e \textit{spine} (spina dorsale); ad ognuna di queste procedure è associata la rispettiva struttura del form, che si differenzia per i campi e i questionari tenuti in considerazione.
+
+
+\subsection{Modelli di Machine Learning e visualizzazioni}
+\label{subsec:modelliML}
+Come abbiamo visto, dopo aver compilato tutti i campi del form, il sistema Epimetheus procede al calcolo dei risultati, tramite modelli di Machine Learning, per poi visualizzarli nella pagina dedicata.
+\newline
+Il modello prende i dati in input, che corrispondono allo stato preoperatorio del paziente e va a prevedere quale sarà lo stato del paziente dopo sei mesi dall'operazione. 
+\newline
+Ad ogni tipo di procedura sono associati due tipi di modelli di Machine Learning, entrambi della categoria di \textit{Supervised Learning}, cioè che utilizzano dati etichettati; il primo è di tipo classificatorio e il secondo di tipo regressivo. Questa doppia scelta è funzionale alla rappresentazione dei dati; infatti, le due tipologie di modelli restituiscono output diversi, che sono utilizzati per generare le visualizzazioni. Differenti diagrammi e grafici, dunque, si basano su differenti tipi di modelli di ML.
+\newline
+Il modello classificatorio prevede se il paziente migliorerà o peggiorerà. Il modello di regressione non solo prevede il miglioramento o peggioramento del paziente, ma anche il suo \textit{score}.
+
+Per quanto riguarda le visualizzazioni, nel sistema Epimetheus ne abbiamo quattro diverse:
+\begin{itemize}
+    \item Uno \textbf{scatterplot} (Figura \ref{fig:scatterplot}), che mostra un solo punto con un intervallo di confidenza per evidenziare il grado di incertezza. Le tre regioni definiscono se si prevede un miglioramento o peggioramento del paziente, oppure se ci si trova in una situazione di incertezza. Questo grafico viene costruito utilizzando gli output del modello classificatorio.
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.8\linewidth]{immagini/scatterplot.png}
+    \caption{ Diagramma di tipo scatterplot}
+    \label{fig:scatterplot}
+\end{figure}
+    
+    \item  Un grafico di tipo \textbf{stick bar} (Figura \ref{fig:stickbar}), creato anch’esso sulla base di modelli classificatori. La posizione della barretta verticale mostra il livello di certezza relativo al miglioramento o peggioramento del paziente.
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.8\linewidth]{immagini/stick_bar.png}
+    \caption{Diagramma stickbar}
+    \label{fig:stickbar}
+\end{figure}
+    
+    \item Un \textbf{grafico circolare} (Figura \ref{fig:diagrammaCircolare}), che fa riferimento sempre ai modelli di tipo classificatorio. In questo caso, la zona centrale corrisponde alla predizione, mentre l'anello attorno funge da legenda per una corretta interpretazione.
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.8\linewidth]{immagini/circle_diagram.png}
+    \caption{Diagramma circolare}
+    \label{fig:diagrammaCircolare}
+\end{figure}
+    
+    \item Un \textbf{violin plot} (Figura \ref{fig:violinPlot}), che è invece costruito a partire dai modelli di tipo regressivo. In questo grafico viene mostrata la forma della distribuzione dei dati. Ad ogni livello l'ampiezza del “violino” indica se quel valore è presente nella distribuzione. Quindi, ad esempio, il valore che ha ampiezza massima corrisponde alla moda della distribuzione. Nel grafico viene inoltre mostrata la mediana. Una lineetta nera mostra il valore predetto dal modello. Anche qui è evidenziato il livello di incertezza riguardo il peggioramento o miglioramento del paziente, in base alle regioni di colore.
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.8\linewidth]{immagini/violin_plot.png}
+    \caption{Diagramma di tipo violin plot}
+    \label{fig:violinPlot}
+\end{figure}
+    
+\end{itemize}
+
+
+\subsection{Tecnologie utilizzate}
+\label{subsec:tecnologie}
+
+Per l’implementazione dell'applicativo sono stati utilizzati il linguaggio Python e il framework Flask.
+\newline
+Flask è una libreria Python usata come framework WSGI, che permette una facile e rapida implementazione di applicazioni web e API. 
+\newline
+Elenchiamo di seguito alcuni dei motivi che rendono l’utilizzo di Flask una scelta popolare e potente per lo sviluppo di web app in Python:
+\begin{itemize}
+    \item Semplicità:  è progettato per essere semplice da imparare e utilizzare, con una struttura minimale e una sintassi chiara.
+    \item Flessibilità: non impone alcuna struttura rigida alle applicazioni. L’essere estremamente  flessibile consente agli sviluppatori di organizzare il codice come preferiscono e di utilizzare solo i componenti di cui hanno bisogno.
+    \item Estensioni: offre una vasta gamma di estensioni che consentono di aggiungere funzionalità avanzate alle applicazioni con facilità.
+    \item Leggerezza:  è leggero e non ha molte dipendenze esterne; è lo sviluppatore a poter scegliere quali strumenti e librerie utilizzare.
+    \item Documentazione: ha una buona documentazione che fornisce guide dettagliate e esempi pratici per aiutare gli sviluppatori.
+    \item Comunità attiva: negli ultimi anni Flask è uno dei framework più popolari per lo sviluppo web, dunque è estremamente facile trovare supporto e risorse online per risolvere i problemi e migliorare le proprie abilità di sviluppo.
+\end{itemize}
+
+Per quanto riguarda la logica e i modelli di ML, alcune delle librerie utilizzate sono pandas, numpy, scipy, xgboost, scikit-learn.
+
+La parte di UI e front-end, invece, è stata sviluppata in HTML, CSS e Javascript, con l'integrazione della libreria D3.js.
+
+\subsection{Punti deboli dell'applicativo}
+\label{subsec:puntiDeboli}
+
+Lo studio appena descritto ci conduce ad evidenziare alcuni punti deboli dell'applicativo, che andremo di seguito ad analizzare.
+\newline
+La prima criticità è rappresentata dalla struttura del progetto e, in particolare, dalla sua organizzazione monolitica. La semplicità e la flessibilità del framework Flask consentono, infatti, di servire sia il front-end che il back-end dell'applicazione, tramite un unico blocco di codice. Ciò ha il vantaggio di accelerare il processo di sviluppo, oltre che di ridurre la complessità dell'architettura e rendere più semplice e diretta l’interazione tra le due parti di front-end e back-end.
+\newline
+Tuttavia, questo approccio può rappresentare una debolezza e comporta diversi svantaggi, soprattutto in vista di sviluppi futuri. In applicazioni di grandi dimensioni, infatti, mantenere il front-end e il back-end in un unico blocco di codice può portare a un aumento della complessità del codice. Questo potrebbe rendere più difficile la comprensione del codice da parte di nuovi sviluppatori e portare a una maggiore probabilità di errori. 
+\newline
+Un altro fattore da considerare è la scalabilità: servire il front-end e il back-end dalla stessa applicazione può limitare la scalabilità della stessa, specialmente se il carico di lavoro aumenta notevolmente.
+\newline
+La mancata separazione tra FE e BE porta anche ad avere gran parte della logica applicativa gestita lato front-end; si può notare come molte funzioni di controllo del flusso logico o di validazione dei dati siano implementate tramite Javascript.
+\newline
+Un altro limite riguarda invece il form e la sua compilazione da parte dell'utente. Le variabili o elementi che si riferiscono ai campi del form sono impostati all'interno del codice Javascript, in maniera statica.
+Ciò è sconsigliabile dal punto di vista della manutenibilità, perché ogni volta che è necessario apportare modifiche o aggiornamenti ai campi del form, si deve modificare direttamente il codice Javascript. Tale procedimento può essere laborioso e aumentare il rischio di errori, soprattutto se ci sono molte dipendenze nel codice. In secondo luogo, se gli elementi del form sono codificati staticamente, può diventare difficile gestire e scalare l'applicazione in futuro.
+\newline
+Infine, dopo aver testato l’applicazione, è emerso che la maggior parte dei campi del form non hanno controlli che verifichino la correttezza dei dati inseriti dall'utente. Questo requisito è particolarmente importante, poiché le predizioni dei modelli, e quindi le visualizzazioni dei risultati, dipendono dai dati inseriti. 
+
+È dunque dall'osservazione e valutazione di questi punti critici, che nasce la necessità di esaminare una nuova architettura per il progetto Epimetheus, che verrà discussa nel successivo paragrafo.
+
+\section{Progettazione dell'architettura back-end}
+\label{sec:architettura}
+
+Tenendo in considerazione l’analisi svolta e le debolezze evidenziate, in questo paragrafo si andrà a delineare il progetto di una nuova architettura per Epimetheus.
+
+Il requisito fondamentale e di maggiore rilevanza è la separazione tra la parte server back-end e la parte front-end. 
+\newline
+La separazione delle responsabilità è una \textit{best practice} di progettazione, che facilita la manutenzione, il testing e lo sviluppo parallelo.
+\newline
+Si tratta, quindi, di organizzare un'architettura su due livelli (\textit{two tiers architecture}); questo tipo di pattern separa la UI dal server back-end funzionalmente e fisicamente e costruisce un ponte di comunicazione attraverso un API esposta dal server. 
+\newline 
+Questo design ha diversi vantaggi:
+\begin{itemize}
+    \item UI e back-end possono essere sviluppati e testati come entità separate.
+    \item L’applicazione avrà una maggiore scalabilità.
+    \item Si ottiene una maggiore modularità, che facilita lo sviluppo per modifiche future.
+\end{itemize}
+Per quanto riguarda il lato front-end, il cui progetto e sviluppo non sono oggetto di questa relazione, esso sarà costituito da un'applicazione React. Al front-end sono affidate la gestione delle interfacce e le interazioni con l’utente e la “traduzione” delle predizioni in grafici facilmente comprensibili e interpretabili.
+\newline
+Il front-end comunicherà con il server back-end tramite specifici endpoint; inoltre verrà utilizzato il protocollo CORS (\textit{Cross-Origin Resource Sharing}), per permettere l’interazione attraverso diversi domini.
+
+Per il server back-end, si è scelto di mantenere l’utilizzo del framework Flask. 
+\newline 
+Questa parte si occuperà di mantenere la maggior parte della logica dell'applicazione. In particolare, sono affidate al back-end le seguenti operazioni:
+\begin{itemize}
+    \item Selezione e invio al front-end della struttura del form selezionato dall'utente.
+    \item Controllo e validazione dei dati del form.
+    \item Calcolo delle predizioni tramite modelli di ML preesistenti.
+\end{itemize}
+Al fine di rispettare tali requisiti, si è deciso di implementare una RESTful API costituita da particolari endpoint, cioè \textit{routes} speciali, in grado di inviare e ricevere dati da/al front-end.
+\newline
+In particolare, sono stati creati tre API endpoint: \verb|get_form| e \verb|predict_hip_and_knee| e \verb|predict_spine|, che verranno analizzati nel paragrafo successivo.
+
+Infine, si è pensato all'introduzione di una nuova classe Python, denominata 
+\newline
+\verb|forms.py|, contenente le strutture di tutte le tipologie di form, sotto forma di dizionari chiave-valore. Svolgerà la funzione di database, per mantenere tutti i form esistenti.
+
+Nella figura \ref{fig:interaction} sono mostrate le interazioni tra i diversi componenti.
+
+\begin{figure}
+    \centering
+    \includegraphics[width=1\linewidth]{immagini/sequence diagram.png}
+    \caption{Schema delle interazioni tra front-end React e back-end Flask}
+    \label{fig:interaction}
+\end{figure}
+
+\section{Implementazione degli endpoint}
+\label{sec:endpoint}
+Per quanto riguarda la comunicazione con il front-end, facendo riferimento al \textit{flow} dell’applicazione, si è pensato a tre API endpoint: \verb|get_form|, \verb|predict_hip_and_knee| e \verb|predict_spine|, che verranno descritti di seguito.
+
+\subsection{Endpoint get\_form}
+\label{subsec:get_form}
+
+Questo endpoint si occupa di inviare al front-end la struttura del form da presentare all'utente, in base alla scelta della procedura effettuata dallo user stesso.
+\newline
+Il server riceve dal front-end un file JSON con l’informazione del tipo di form richiesto; la risposta sarà un JSON contenente la struttura del form, recuperata dalla classe \verb|forms.py|.
+
+\begin{itemize}
+  \item Endpoint URL: \verb|/api/get_form|
+  \item Metodi HTTP: \verb|POST|
+  \item Formato della richiesta: JSON
+  \item Parametri della richiesta:
+    \begin{itemize}
+        \item selectedFormType(int): 0-1 (0 == hip/knee, 1 == spine)
+    \end{itemize}
+  \item Esempio di richiesta:
+    \begin{verbatim}
+        {
+      "selectedFormType": 0
+        }
+    \end{verbatim}
+  \item Formato della risposta: JSON (ritorna un JSON con la struttura del form)
+  \item Gestione degli errori:
+      \begin{itemize}
+        \item 400 Bad Request: richiesta invalida, errore nella richiesta (JSON)
+    \end{itemize}
+\end{itemize}
+
+
+\subsection{Endpoint predict\_hip\_knee}
+\label{subsec:predict_hip_knee}
+
+Questo endpoint si occupa di calcolare le predizioni per il modello della procedura \textit{hip/knee}.
+\newline
+Il server Flask riceve dal front-end React i dati del form, sotto forma di file JSON; successivamente, tramite funzioni di validazione, controlla che i dati di ogni campo siano validi e coerenti con gli intervalli di valori, analizzati nel paragrafo precedente. 
+\newline
+In caso di errori, ritorna un codice di errore. Se tutti i dati sono validi, utilizzando i modelli di ML opportuni, vengono calcolate le predizioni e inviate come JSON al front-end.
+
+\begin{itemize}
+  \item Endpoint URL: \verb|/api/predict_hip_knee|
+  \item Metodi HTTP: \verb|POST|
+  \item Fromato della richiesta: JSON
+  \item Parametri della richiesta:
+    \begin{itemize}
+        \item sesso (int): 0-1
+        \item anni\_ricovero (int): 0-120
+        \item classe\_asa (int): 0-4
+        \item VAS\_Total\_PreOp (int): 0-10
+        \item physicalScore (int): 0-100
+        \item mentalScore (int): 0-100
+        \item bmi\_altezza\_preOp (int): 60-250
+        \item bmi\_peso\_preOp (int): 10-500
+        \item SF12\_autovalsalute\_risp\_0 (int): 0-4
+        \item SF12\_scale\_risp\_0 (int): 0-10
+        \item SF12\_ultimomeseresa\_risp\_0 (int): 0-1
+        \item SF12\_ultimomeselimite\_risp\_0 (int): 0-1
+        \item SF12\_ultimomeseemo\_risp\_0 (int): 0-1
+        \item SF12\_ultimomeseostacolo\_risp\_0 (int): 0-4
+        \item SF12\_ultimomesesereno\_risp\_0 (int): 0-5
+        \item SF12\_ultimomeseenergia\_risp\_0 (int): 0-5
+        \item SF12\_ultimomesetriste\_risp\_0 (int): 0-5
+        \item SF12\_ultimomesesociale\_risp\_0 (int): 0-4
+        \item zona\_operazione (int): 0-2
+    \end{itemize}
+  \item Esempio di richiesta:
+    \begin{verbatim}
+        {
+            "sesso": 1,
+            "anni_ricovero": 63,
+            "classe_asa": 1,
+            "VAS_Total_PreOp": 1,
+            "physicalScore": 1,
+            "mentalScore": 1,
+            "bmi_altezza_preOp": 156,
+            "bmi_peso_preOp": 84,
+            "SF12_autovalsalute_risp_0": 1,
+            "SF12_scale_risp_0": 1,
+            "SF12_ultimomeseresa_risp_0": 1,
+            "SF12_ultimomeselimite_risp_0": 1,
+            "SF12_ultimomeseemo_risp_0": 1,
+            "SF12_ultimomeseostacolo_risp_0": 1,
+            "SF12_ultimomesesereno_risp_0": 1,
+            "SF12_ultimomeseenergia_risp_0": 1,
+            "SF12_ultimomesetriste_risp_0": 1,
+            "SF12_ultimomesesociale_risp_0": 1,
+            "zona_operazione": 0
+        }
+    \end{verbatim}
+  \item Formato della risposta: JSON (ritorna un JSON con le predizioni)
+  \item Gestione degli errori:
+      \begin{itemize}
+        \item 400 Bad Request: richiesta invalida, errore nella richiesta (JSON)
+        \item 422 Unprocessable Entity: uno o più parametri invalidi, errori nella validazione dei dati del form
+        \item 500 Internal Server Error: errore durante il calcolo delle predizioni.
+    \end{itemize}
+\end{itemize}
+
+\subsection{Endpoint predict\_spine}
+\label{subsec:predict_spine}
+
+Analogamente al \verb|predict_hip_knee|, questo endpoint si occupa di calcolare le predizioni, stavolta per la procedura \textit{spine}.
+
+\begin{itemize}
+  \item Endpoint URL: \verb|/api/predict_spine|
+  \item Metodi HTTP: \verb|POST|
+  \item Formato della richiesta: JSON
+  \item Parametri della richiesta:
+    \begin{itemize}
+    \item nome\_operazione (int): 0-4
+        \item sesso (int): 0-1
+        \item anni\_ricovero (int): 0-120
+        \item ODI\_Total\_PreOp (int): 0-100
+        \item VAS\_Back\_PreOp (int): 0-10
+        \item VAS\_Leg\_PreOp (int): 0-10
+        \item SF36\_GeneralHealth\_PreOp (int): 0-100
+        \item SF36\_PhysicalFunctioning\_PreOp (int): 0-100
+        \item SF36\_RoleLimitPhysical\_PreOp (int): 0-100
+        \item SF36\_RoleLimitEmotional\_PreOp (int): 0-100
+        \item SF36\_SocialFunctioning\_PreOp (int): 0-100
+        \item SF36\_Pain\_PreOp (int): 0-100
+        \item SF36\_EnergyFatigue\_PreOp (int): 0-100
+        \item SF36\_EmotionalWellBeing\_PreOp (int): 0-100
+        \item SF36\_MentalScore\_PreOp (int): 0-100
+        \item SF36\_PhysicalScore\_PreOp (int): 0-100
+        \item FABQ\_Work\_PreOp (int): 0-66
+        \item classe\_asa\_1 (int): 0-4
+        \item MORBIDITY (int): 0-100        
+    \end{itemize}
+  \item Esempio di richiesta:
+    \begin{verbatim}
+        {
+            "nome_operazione": 1,
+            "sesso": 0,
+            "anni_ricovero": 4,
+            "ODI_Total_PreOp": 3,
+            "Vas_Back_PreOp": 3,
+            "Vas_Leg_PreOp":3,
+            "SF36_GeneralHealth_PreOp": 3,
+            "SF36_PhysicalFunctioning_PreOp": 3,
+            "SF36_RoleLimitPhysical_PreOp": 5,
+            "SF36_RoleLimitEmotional_PreOp": 4,
+            "SF36_SocialFunctioning_PreOp": 4,
+            "SF36_Pain_PreOp": 4,
+            "SF36_EnergyFatigue_PreOp": 4,
+            "SF36_EmotionalWellBeing_PreOp": 4,
+            "SF36_MentalScore_PreOp": 4,
+            "SF36_PhysicalScore_PreOp": 4,
+            "FABQ_Work_PreOp": 4,
+            "classe_asa_1": 4,
+            "MORBIDITY": 4
+        }
+    \end{verbatim}
+  \item Formato della risposta: JSON (ritorna un JSON con le predizioni)
+  \item Gestione degli errori:
+      \begin{itemize}
+        \item 400 Bad Request: richiesta invalida, errore nella richiesta (JSON)
+        \item 422 Unprocessable Entity: uno o più parametri invalidi, errori nella validazione dei dati del form
+        \item 500 Internal Server Error
+    \end{itemize}
+\end{itemize}
+
+
+\section{Deployment dell'applicazione in produzione}
+\label{sec:deploy}
+
+Andremo ora a descrivere il processo di deployment dell'applicazione Epimetheus.
+\newline
+Rendere l’applicazione accessibile agli utenti permette di testare il sistema in un ambiente reale e raccogliere \textit{feedback} dagli utenti.
+\newline
+Inoltre,  contribuisce a promuovere l'accettazione di questo tipo di supporti: dimostrandone l'utilità e l'affidabilità nel contesto clinico, gli operatori sanitari potrebbero essere più propensi ad utilizzarli e ad integrarli nella loro pratica.
+
+\subsection{Server Apache come metodo di deployment}
+
+Durante la fase di valutazione per selezionare il metodo più appropriato di mettere l'applicazione in produzione, la prima scelta è stata quella di utilizzare un servizio di porting online, quale \textit{Pythonanywhere} o simili. Questa soluzione ha il grande beneficio di essere molto conveniente e user-friendly per il deployment di applicazioni Python.
+\newline
+Occorre, però, considerare che la maggior parte dei servizi di porting online hanno limitazioni di spazio, specialmente per i loro piani gratuiti. Questi limiti possono riguardare diversi aspetti, tra cui lo spazio su disco disponibile per l'archiviazione dei file dell'applicazione; questo rappresenta un problema se sono coinvolti grandi quantità di dati o risorse, come può essere il caso di un sistema che implementa modelli di Machine Learning.
+\newline
+Anche il traffico mensile consentito è spesso ridotto per le versioni gratuite. Dunque, se l'applicazione ha un traffico elevato, si rischia di superare facilmente questi limiti, causando la sospensione temporanea del servizio.
+\newline
+Pertanto, per evitare che lo sviluppo presente e futuro di Epimetheus fosse soggetto a queste limitazioni, si è deciso di considerare un metodo alternativo, e rendere l’applicazione disponibile tramite Server Apache, configurato su una macchina ad indirizzo IP pubblico.
+
+Questa scelta comporta un lavoro di tipo sistemistico ed è più dispendiosa in termini di tempo e lavoro, ma, allo stesso tempo, apporta numerosi benefici.
+\newline
+Innanzitutto, utilizzando Apache su un server dedicato, si ha controllo completo sull'ambiente di hosting, compresa la configurazione del server, l'accesso ai file di log e la gestione delle risorse. Apache offre, inoltre, una vasta gamma di opzioni di configurazione, consentendo di ottimizzare il server per le esigenze specifiche dell'applicazione. 
+\newline
+In secondo luogo, utilizzando Apache, si ha la flessibilità di integrare l'applicazione Flask con altri servizi e componenti del server, come moduli aggiuntivi, servizi di autenticazione e autorizzazione, che potrebbero risultare utili per i futuri sviluppi dell'applicativo.
+\newline
+Apache, infine, è noto per la sua capacità di gestire un grande volume di traffico e di garantire prestazioni elevate, anche in presenza di picchi di utilizzo.
+
+Per quanto riguarda  l'architettura dell'applicazione, Epimetheus andrà ad interagire con il server Apache come mostrato nella figura \ref{fig:component}. Esso fungerà da intermediario tra il client (browser web) e il front-end dell'applicazione, che a sua volta comunica con il back-end, tramite richieste HTTP, agli API endpoint; il server gestirà poi le risposte, restituendo l’output al client.
+
+\begin{figure}
+    \centering
+    \includegraphics[width=1\linewidth]{immagini/Component diagram.png}
+    \caption{Diagramma dei componenti del sistema Epimetheus}
+    \label{fig:component}
+\end{figure}
+È quindi necessario configurare Apache sia per quanto riguarda la parte back-end, sia per il front-end React. 
+\newline
+Nella prossima sezione, in particolare, ci soffermeremo sul processo per integrare il server Flask con Apache.
+
+\subsection{Integrazione di Flask con Apache}
+
+Verranno ora presentate le configurazioni necessarie per far funzionare correttamente il back-end Flask su Apache. 
+
+Abbiamo visto come il framework Flask sia molto popolare nello sviluppo di web app, essendo molto semplice ed agile. Tuttavia, non è così agile per quanto riguarda il deployment in produzione.
+\newline
+Per questo motivo, per l’implementazione del progetto, si è scelto di affidarsi all'utilizzo del modulo \verb|mod_wsgi|.
+\newline
+\verb|mod_wsgi| è un modulo Server Apache HTTP, ideato da Graham Dumpleton, che offre un’interfaccia WSGU per ospitare applicazioni web in Python, tramite server Apache.
+
+Di seguito, elenchiamo i passi principali per la configurazione del server: 
+
+\begin{enumerate}
+    \item Eseguire il server Apache come Windows Service
+    \item Installare \verb|mod_wsgi|
+    \item Usare \verb|mod_wsgi| nel server Apache
+    \item Configurare un VirtualHost per l’app Flask
+    \item Creare un WSGI Script all'interno del progetto dell'applicazione.
+\end{enumerate}
+Questi passaggi permettono di implementare il back-end Flask dell'applicazione su un server Apache.
+\newline
+È possibile consultare l’Appendice 2 (\ref{ch:appendice2}), per una visione più tecnica e specifica di tale procedimento.
+

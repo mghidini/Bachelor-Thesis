@@ -1,0 +1,147 @@
+\chapter*{Appendice 2}
+\label{ch:appendice2}
+
+\section*{Configurazione di un server per ospitare una applicazione Flask}
+
+Di seguito verrà illustrato il processo distribuzione di un’applicazione Flask su una macchina Windows, utilizzando un server Apache. 
+In particolare, saranno presentati i passi per la configurazione del server, i principali problemi riscontrabili e le possibili soluzioni.
+Per la stesura di questa appendice è stato utilizzato come riferimento l’articolo di Rizal Maulana, \textit{“Flask App Deployment in Windows (Apache-Server, mod\_wsgi)”}\cite{apacheFlask}.
+
+\subsection*{Prerequisiti}
+
+\begin{enumerate}
+    \item Visual C++ Redistributable for Visual Studio
+    \item Visual C++ Build Tools (https://visualstudio.microsoft.com/visual-cpp-build-tools/)
+    \item python3 (Installato per tutti gli utenti, perciò fare attenzione che la directory di installazione non sia sotto  \verb|C:/Users|)
+    \item python3-pip
+    \item XAMPP Apache
+\end{enumerate}
+
+\subsection*{Eseguire Apache come Windows Service}
+
+Posizionarsi nella directory \verb|<Apache Home>/bin|. Per \verb|<Apache Home>| si intende la posizione in cui è stato installato Apache.
+
+\begin{verbatim}
+   cd C:/XAMPP/Apache/bin 
+\end{verbatim}
+Digitare il seguente comando:
+
+\begin{verbatim}
+    httpd.exe -k install
+\end{verbatim}
+Dopo aver installato Apache come Windows Service, è possibile utilizzare altri comandi come start, stop, restart, uninstall per gestire il server. La sintassi è la seguente:
+
+\begin{verbatim}
+    httpd.exe -k [command]
+\end{verbatim}
+
+\subsection*{Installare mod\_wsgi}
+A questo punto è necessario installare mod-wsgi in Python, tramite pip. Prima di di questa operazione, però, è consigliabile configurare una variabile di ambiente:
+
+\begin{verbatim}
+   set MOD_WSGI_APACHE_ROOTDIR=<Apache Home> 
+\end{verbatim}
+
+\begin{verbatim}
+    pip install mod-wsgi
+\end{verbatim}
+In questa fase di installazione è possibile che si riscontrino degli errori. In tal caso, la prima possibilità è che non sia stata configurata correttamente la variabile di ambiente e bisogna quindi procedere come descritto sopra; se gli errori dovessero persistere, potrebbe essere necessario installare una diversa versione di \verb|mod\_wsgi|. Si può tentare con diverse versioni fino a trovare quella adatta alla propria versione di Python.
+
+\subsection*{Utilizzare mod\_wsgi in Apache Server}
+
+Dopo aver installato \verb|mod_wsgi| in Python, eseguire il seguente comando per ottenere la configurazione di\verb|mod_wsgi|:
+
+\begin{verbatim}
+    mod_wsgi-express module-config
+\end{verbatim}
+Dovrebbe stampare un output simile a:
+
+\begin{verbatim}
+    LoadFile “C:/Python38/python38.dll”
+    LoadModule wsgi_module “C:/python38/lib/site-
+    packages/mod\_wsgi/server/mod_wsgi.cp38-
+    win_amd64.pyd”
+    WSGIPythonHome “C:/Python38”
+\end{verbatim}
+Copiare l’output ottenuto e incollarlo nel file di configurazione di Apache
+\newline
+(\verb|<Apache Home>/conf/httpd.conf|), prima delle dichiarazioni di tipo \verb|LoadModule|.
+\newline
+Dopo questa operazione, far ripartire il server, gestendo eventuali errori.
+\newline
+A questo punto è possibile aggiungere delle porte, in caso non si volesse utilizzare la porta di default di Apache, che è la porta 80. Per aggiungere una porta è sufficiente aggiungere il comando  \verb|Listen <port>| (sostituire \verb|<port>| con il numero di porta desiderato) nel file \verb|httpd.conf|.
+
+\subsection*{Configurare un Virtual Host per una Flask App}
+
+Terminata la configurazione principale nel file \verb|httpd.conf|, possiamo aprire il file di configurazione dei Virtual Host, situato in 
+\newline
+\verb|<ApacheHome>/conf/extra/httpd-vhosts.conf|. Copiare nel file il seguente codice:
+
+\begin{verbatim}
+    <VirtualHost *:5000>
+    ServerAdmin admin-name-here
+    ServerName server-name-here (e.g:localhost:5000)
+    WSGIScriptAlias / “F:/myapp/app/index/web.wsgi”
+    DocumentRoot “F:/myapp”
+    <Directory “F:/myapp/app/index”>
+    Require all granted
+    Options Indexes FollowSymLinks Includes ExecCGI
+    </Directory>
+    AddHandler wsgi-script .wsgi //This is to ensure that wsgi script 
+        would be handled by apache handler.
+    ErrorLog “F:/myapp/logs/error.log”
+    CustomLog “F:/myapp/logs/access.log” common
+    </VirtualHost>
+\end{verbatim}
+
+Analizziamo i campi più importanti di questa configuarazione:
+\begin{enumerate}
+    \item Server Name: dominio dell'app se esiste, o semplicemente localhost
+    \item WSGIScriptAlias: ha due campi, il primo una url che indica il dominio, il secondo la directory in cui è posizionato il file wsgi (all'interno del progetto dell'app). Questo campo, quindi, dice al server Apache quale script deve eseguire quando c’è una richiesta per quel dominio.
+    \item DocumentRoot: directory con la root del progetto dell'applicazione
+    \item \textless{}Directory\textgreater{}: per ragioni di sicurezza dovrebbe garantire l’accesso allo script wsgi ma non all'intero progetto.
+    \item ErrorLog e CustomLog: posizione dei file di log; se l’applicazione non prevede file di log, può essere utile crearli manualmente.
+\end{enumerate}
+Le directory possono essere scritte come stringhe, ma in caso di errori si consiglia di provare a scriverle semplicemente senza virgolette.
+\newline
+A questo punto è necessario riaprire il file \verb|httpd.conf| e cercare la dicitura 
+\newline
+\verb|httpd-vhosts.conf|; assicurarsi che sia presente (non commentata) la seguente linea:
+
+\begin{verbatim}
+    # Virtual hosts
+    Include conf/extra/httpd-vhosts.conf
+\end{verbatim}
+Per verificare che tutto sia stato configurato correttamente, è sufficiente fare un restart del server. Per risolvere eventuali errori controllare che tutte le informazioni della configurazione del Virtual Host coincidano e siano coerenti con il progetto dell'applicazione. Tra queste si intende: directory e url, porte, indirizzo IP del server, nomi dei file. Ogni volta che si modifica la struttura del progetto, è importante che i cambiamenti siano riflessi anche nella configurazione del Virtual Host. Si possono ottenere informazioni specifiche riguardo agli errori nel file \verb|error.log| del Server Apache.
+
+\subsection*{Creare uno Script WSGI}
+
+All'interno del progetto dell'applicazione, creare manualmente lo script wsgi. L’estensione del file può essere \verb|.wsgi| o \verb|.py| e si può utilizzare un nome esplicativo come \verb|web.wsgi| o \verb|wsgi.py|. All'interno dello script, copiare il seguente codice Python:
+
+\begin{verbatim}
+    import sys
+    sys.path.insert(0, ‘F:/myapp’)
+    from your-app-script import app as application
+\end{verbatim}
+
+La directory \verb|F:/myapp| deve ovviamente puntare alla root del progetto.
+
+\verb|your-app-script| è il file Python in cui troviamo il \verb|main| e dovrebbe essere simile a:
+
+\begin{verbatim}
+    from flask import Flask
+
+    app = Flask(__name__)
+
+    @app.route(“/”)
+    def hello():
+    return “Hello World”
+
+    if __name__ == “__main__”:
+    app.run()
+\end{verbatim}
+A questo punto la configurazione dell'app Flask, utilizzando un server XAMPP Apache su Windows, è completata. 
+\newline
+Quando il server è in esecuzione, per eseguire l’app Flask è sufficiente collegarsi all'indirizzo dell'applicazione.
+\newline
+Se dovessero presentarsi problemi con la visibilità del server, vale a dire il server non è accessibile dall'esterno, si può procedere controllando le impostazioni del Firewall Windows. Deve essere presente una regola per il Server Apache che accetti (in entrata) il traffico proveniente dalla porta 80 (o la porta configurata per il server Apache). Inoltre, se c’è una regola che blocca il traffico in uscita per quella porta, essa deve essere eliminata.

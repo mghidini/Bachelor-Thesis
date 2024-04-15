@@ -1,0 +1,48 @@
+\chapter*{Appendice 1}
+\label{ch:appendice1}
+
+\section*{Avvio dell'applicazione Epimetheus in locale}
+
+In questa appendice si andrà ad illustrare il procedimento per avviare l'applicazione Epimetheus in ambiente locale.
+
+\subsection*{Prerequisiti}
+\begin{enumerate}
+    \item Python 3.10 (È importante accertarsi che la versione di Python installata sia la 3.10; versioni precedenti o successive potrebbero generare errori con le dipendenze e le librerie necessarie.)
+    \item pip
+    \item Node.js
+\end{enumerate}
+
+\subsection*{Avvio del server Flask}
+
+Installare tutte le dipendenze, posizionandosi nella cartella \verb|<epimetheusHome>/backend| (per \verb|<epimetheusHome>| si intende la posizione in cui si trova il progetto) ed eseguendo il comando:
+\begin{verbatim}
+    pip install -r requirements.txt  
+\end{verbatim}
+Dopo la configurazione generale del progetto, posizionarsi nella cartella 
+\newline
+\verb|<epimetheusHome>/backend| ed eseguire il comando 
+\begin{verbatim}
+    python flask_app.py 
+\end{verbatim}
+Se non ci sono errori il server Flask sarà in esecuzione su \verb|http://localhost:5000|
+
+\subsection*{Avvio del front-end React}
+
+Per avviare il front-end React, posizionarsi nella cartella \verb|<epimetheusHome>/frontend| ed eseguire il comando
+\begin{verbatim}
+    npm install
+\end{verbatim}
+Questo comando installerà tutte le dipendenze e andrà rieseguito ogniqualvolta si apportano modifiche al file \verb|packages.json|.
+
+Per avviare l’applicazione React eseguire il comando
+\begin{verbatim}
+   npm start 
+\end{verbatim}
+L’output sarà visibile all'url \verb|http://localhost3000|.
+
+\subsection*{Comunicazione tra front-end e back-end}
+Affinché il front-end React e il server Flask possano comunicare, è necessario configurare un proxy nel file \verb|packages.json|, perciò è importante assicurarsi che in tale file sia presente la linea:
+\begin{verbatim}
+    "proxy":"http://localhost:5000/"
+\end{verbatim}
+In questo modo, quando si avvia l'applicazione React, tutte le richieste HTTP inviate dal front-end React saranno reindirizzate al server back-end Flask. Quindi, quando si fa una richiesta dal  front-end  e si indirizza la richiesta a una url relativa (ad esempio \verb|/api/...|), il proxy in \verb|packages.json| instraderà questa richiesta al server Flask in esecuzione su \verb|localhost:5000|.
